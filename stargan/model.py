@@ -1,10 +1,11 @@
+import sys
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import sys
 
-import defenses.smoothing as smoothing
+# import defenses.smoothing as smoothing
 
 class ResidualBlock(nn.Module):
     """Residual Block with instance normalization."""
@@ -112,58 +113,58 @@ class Discriminator(nn.Module):
         out_cls = self.conv2(h)
         return out_src, out_cls.view(out_cls.size(0), out_cls.size(1))
 
-class AvgBlurGenerator(nn.Module):
-    """Generator network."""
-    def __init__(self, conv_dim=64, c_dim=5, repeat_num=6):
-        super(AvgBlurGenerator, self).__init__()
+# class AvgBlurGenerator(nn.Module):
+#     """Generator network."""
+#     def __init__(self, conv_dim=64, c_dim=5, repeat_num=6):
+#         super(AvgBlurGenerator, self).__init__()
 
-        layers = []
-        layers.append(nn.Conv2d(3+c_dim, conv_dim, kernel_size=7, stride=1, padding=3, bias=False))
-        layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
-        layers.append(nn.ReLU(inplace=True))
+#         layers = []
+#         layers.append(nn.Conv2d(3+c_dim, conv_dim, kernel_size=7, stride=1, padding=3, bias=False))
+#         layers.append(nn.InstanceNorm2d(conv_dim, affine=True, track_running_stats=True))
+#         layers.append(nn.ReLU(inplace=True))
 
-        # Down-sampling layers.
-        curr_dim = conv_dim
-        for i in range(2):
-            layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=4, stride=2, padding=1, bias=False))
-            layers.append(nn.InstanceNorm2d(curr_dim*2, affine=True, track_running_stats=True))
-            layers.append(nn.ReLU(inplace=True))
-            curr_dim = curr_dim * 2
+#         # Down-sampling layers.
+#         curr_dim = conv_dim
+#         for i in range(2):
+#             layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=4, stride=2, padding=1, bias=False))
+#             layers.append(nn.InstanceNorm2d(curr_dim*2, affine=True, track_running_stats=True))
+#             layers.append(nn.ReLU(inplace=True))
+#             curr_dim = curr_dim * 2
 
-        # Bottleneck layers.
-        for i in range(repeat_num):
-            layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
+#         # Bottleneck layers.
+#         for i in range(repeat_num):
+#             layers.append(ResidualBlock(dim_in=curr_dim, dim_out=curr_dim))
 
-        # Up-sampling layers.
-        for i in range(2):
-            layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
-            layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
-            layers.append(nn.ReLU(inplace=True))
-            curr_dim = curr_dim // 2
+#         # Up-sampling layers.
+#         for i in range(2):
+#             layers.append(nn.ConvTranspose2d(curr_dim, curr_dim//2, kernel_size=4, stride=2, padding=1, bias=False))
+#             layers.append(nn.InstanceNorm2d(curr_dim//2, affine=True, track_running_stats=True))
+#             layers.append(nn.ReLU(inplace=True))
+#             curr_dim = curr_dim // 2
 
-        layers.append(nn.Conv2d(curr_dim, 3, kernel_size=7, stride=1, padding=3, bias=False))
-        layers.append(nn.Tanh())
-        self.main = nn.Sequential(*layers)
+#         layers.append(nn.Conv2d(curr_dim, 3, kernel_size=7, stride=1, padding=3, bias=False))
+#         layers.append(nn.Tanh())
+#         self.main = nn.Sequential(*layers)
 
-        layers_preproc = []
-        # layers_preproc.append(nn.ReflectionPad2d(2))
-        layers_preproc.append(smoothing.AverageSmoothing2D(channels=3+c_dim, kernel_size=21))
-        self.preprocessing = nn.Sequential(*layers_preproc)
+#         layers_preproc = []
+#         # layers_preproc.append(nn.ReflectionPad2d(2))
+#         layers_preproc.append(smoothing.AverageSmoothing2D(channels=3+c_dim, kernel_size=21))
+#         self.preprocessing = nn.Sequential(*layers_preproc)
 
-    def forward(self, x, c):
-        # Replicate spatially and concatenate domain information.
-        # Note that this type of label conditioning does not work at all if we use reflection padding in Conv2d.
-        # This is because instance normalization ignores the shifting (or bias) effect.
-        c = c.view(c.size(0), c.size(1), 1, 1)
-        c = c.repeat(1, 1, x.size(2), x.size(3))
-        x = torch.cat([x, c], dim=1)
+#     def forward(self, x, c):
+#         # Replicate spatially and concatenate domain information.
+#         # Note that this type of label conditioning does not work at all if we use reflection padding in Conv2d.
+#         # This is because instance normalization ignores the shifting (or bias) effect.
+#         c = c.view(c.size(0), c.size(1), 1, 1)
+#         c = c.repeat(1, 1, x.size(2), x.size(3))
+#         x = torch.cat([x, c], dim=1)
 
-        # print(x.shape)
-        x = self.preprocessing(x)
-        # print(x.shape)
-        return self.main(x), x[:,:3]
+#         # print(x.shape)
+#         x = self.preprocessing(x)
+#         # print(x.shape)
+#         return self.main(x), x[:,:3]
 
 
-def avg_smoothing_filter(channels, kernel_size):
-    kernel = torch.ones((channels, 1, kernel_size, kernel_size)) / (kernel_size * kernel_size)
-    return kernel
+# def avg_smoothing_filter(channels, kernel_size):
+#     kernel = torch.ones((channels, 1, kernel_size, kernel_size)) / (kernel_size * kernel_size)
+#     return kernel

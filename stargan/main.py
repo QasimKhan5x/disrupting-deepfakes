@@ -1,16 +1,31 @@
-import os
 import argparse
-from solver import Solver
-from data_loader import get_loader
-from torch.backends import cudnn
+import os
+import random
+
+import numpy as np
+import torch
+
+from stargan.data_loader import get_loader
+from stargan.psolver import Disruptor
+
+
+def set_seed(seed):
+    """Set seed"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 def str2bool(v):
     return v.lower() in ('true')
 
 def main(config):
-    # For fast training.
-    cudnn.benchmark = True
 
     # Create directories if not exist.
     if not os.path.exists(config.log_dir):
@@ -22,45 +37,16 @@ def main(config):
     if not os.path.exists(config.result_dir):
         os.makedirs(config.result_dir)
 
-    # Data loader.
-    celeba_loader = None
-    rafd_loader = None
+    celeba_loader = get_loader(config.celeba_image_dir, config.attr_path, config.selected_attrs,
+                                config.celeba_crop_size, config.image_size, config.batch_size,
+                                'CelebA', config.mode, config.num_workers)
 
-    if config.dataset in ['CelebA', 'Both']:
-        celeba_loader = get_loader(config.celeba_image_dir, config.attr_path, config.selected_attrs,
-                                   config.celeba_crop_size, config.image_size, config.batch_size,
-                                   'CelebA', config.mode, config.num_workers)
-    if config.dataset in ['RaFD', 'Both']:
-        rafd_loader = get_loader(config.rafd_image_dir, None, None,
-                                 config.rafd_crop_size, config.image_size, config.batch_size,
-                                 'RaFD', config.mode, config.num_workers)
+
+    # Solver for training and testing DeepFake Disruptor
+    set_seed(config.seed)
+    solver = Disruptor(config, celeba_loader).cuda()
+    solver.train()
     
-
-    # Solver for training and testing StarGAN.
-    solver = Solver(celeba_loader, rafd_loader, config)
-
-    if config.mode == 'train':
-        if config.dataset in ['CelebA', 'RaFD']:
-            # Vanilla training
-            # solver.train()
-            # Generator adversarial training
-            # solver.train_adv_gen()
-            # G+D adversarial training
-            solver.train_adv_both()
-        elif config.dataset in ['Both']:
-            solver.train_multi()
-    elif config.mode == 'test':
-        if config.dataset in ['CelebA', 'RaFD']:
-            # Normal inference
-            # solver.test()
-            # Attack inference
-            solver.test_attack()
-            # Feature attack experiment
-            # solver.test_attack_feats()
-            # Conditional attack experiment
-            # solver.test_attack_cond()
-        elif config.dataset in ['Both']:
-            solver.test_multi()
 
 
 if __name__ == '__main__':
@@ -79,43 +65,42 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_cls', type=float, default=1, help='weight for domain classification loss')
     parser.add_argument('--lambda_rec', type=float, default=10, help='weight for reconstruction loss')
     parser.add_argument('--lambda_gp', type=float, default=10, help='weight for gradient penalty')
+    parser.add_argument('--eps', type=float, default=0.05, help='epsilon for perturbation')
+    parser.add_argument('--order', type=int, default=2, help='distance metric')
     
     # Training configuration.
+    parser.add_argument('--seed', type=int, default=42, help='seed for experiments')
     parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
-    parser.add_argument('--batch_size', type=int, default=13, help='mini-batch size')
-    parser.add_argument('--num_iters', type=int, default=200000, help='number of total iterations for training D')
-    parser.add_argument('--num_iters_decay', type=int, default=100000, help='number of iterations for decaying lr')
-    parser.add_argument('--g_lr', type=float, default=0.0001, help='learning rate for G')
-    parser.add_argument('--d_lr', type=float, default=0.0001, help='learning rate for D')
-    parser.add_argument('--n_critic', type=int, default=5, help='number of D updates per each G update')
-    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for Adam optimizer')
+    parser.add_argument('--batch_size', type=int, default=32, help='mini-batch size')
+    parser.add_argument('--epochs', type=int, default=30, help='number of total epochs for training P')
+    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate for G')
+    parser.add_argument('--beta1', type=float, default=0.99, help='beta1 for Adam optimizer')
     parser.add_argument('--beta2', type=float, default=0.999, help='beta2 for Adam optimizer')
-    parser.add_argument('--resume_iters', type=int, default=None, help='resume training from this step')
+    parser.add_argument('--resume', default=False, action='store_true', help='resume training from last epoch')
     parser.add_argument('--selected_attrs', '--list', nargs='+', help='selected attributes for the CelebA dataset',
                         default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young'])
-
-    # Test configuration.
-    parser.add_argument('--test_iters', type=int, default=200000, help='test model from this step')
+    parser.add_argument('--alpha', type=float, default=0.12, help="alpha for gradnorm")
 
     # Miscellaneous.
-    parser.add_argument('--num_workers', type=int, default=1)
+    parser.add_argument('--num_workers', type=int, default=48)
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
-    parser.add_argument('--use_tensorboard', type=str2bool, default=False)
+    parser.add_argument('--disable_tensorboard', action='store_true', default=False)
 
     # Directories.
-    parser.add_argument('--celeba_image_dir', type=str, default='data/celeba/images')
-    parser.add_argument('--attr_path', type=str, default='data/celeba/list_attr_celeba.txt')
-    parser.add_argument('--rafd_image_dir', type=str, default='data/RaFD/train')
+    parser.add_argument('--gen_ckpt', type=str, default='stargan/stargan_celeba_256/models/200000-G.ckpt')
+    parser.add_argument('--detector_path', type=str,
+                        default='detection/detector_c23.pth')
+    parser.add_argument('--celeba_image_dir', type=str, default='stargan/data/celeba/images')
+    parser.add_argument('--attr_path', type=str, default='stargan/data/celeba/list_attr_celeba.txt')
     parser.add_argument('--log_dir', type=str, default='stargan/logs')
-    parser.add_argument('--model_save_dir', type=str, default='stargan/models')
+    parser.add_argument('--model_save_dir', type=str,
+                        default='stargan/perturbation_models')
     parser.add_argument('--sample_dir', type=str, default='stargan/samples')
     parser.add_argument('--result_dir', type=str, default='stargan/results')
 
     # Step size.
-    parser.add_argument('--log_step', type=int, default=10)
-    parser.add_argument('--sample_step', type=int, default=1000)
-    parser.add_argument('--model_save_step', type=int, default=5000)
-    parser.add_argument('--lr_update_step', type=int, default=1000)
+    parser.add_argument('--log_step', type=int, default=1)
+    parser.add_argument('--sample_step', type=int, default=10)
 
     config = parser.parse_args()
     print(config)

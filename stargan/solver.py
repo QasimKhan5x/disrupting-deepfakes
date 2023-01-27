@@ -939,8 +939,39 @@ class Solver(object):
                 save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
                 print('Saved real and fake images into {}...'.format(result_path))
 
-    
+    def test_multi(self):
+        """Translate images using StarGAN trained on multiple datasets."""
+        # Load the trained generator.
+        self.restore_model(self.test_iters)
+        
+        with torch.no_grad():
+            for i, (x_real, c_org) in enumerate(self.celeba_loader):
 
+                # Prepare input images and target domain labels.
+                x_real = x_real.to(self.device)
+                c_celeba_list = self.create_labels(c_org, self.c_dim, 'CelebA', self.selected_attrs)
+                c_rafd_list = self.create_labels(c_org, self.c2_dim, 'RaFD')
+                zero_celeba = torch.zeros(x_real.size(0), self.c_dim).to(self.device)            # Zero vector for CelebA.
+                zero_rafd = torch.zeros(x_real.size(0), self.c2_dim).to(self.device)             # Zero vector for RaFD.
+                mask_celeba = self.label2onehot(torch.zeros(x_real.size(0)), 2).to(self.device)  # Mask vector: [1, 0].
+                mask_rafd = self.label2onehot(torch.ones(x_real.size(0)), 2).to(self.device)     # Mask vector: [0, 1].
+
+                # Translate images.
+                x_fake_list = [x_real]
+                for c_celeba in c_celeba_list:
+                    c_trg = torch.cat([c_celeba, zero_rafd, mask_celeba], dim=1)
+                    x_fake_list.append(self.G(x_real, c_trg))
+                for c_rafd in c_rafd_list:
+                    c_trg = torch.cat([zero_celeba, c_rafd, mask_rafd], dim=1)
+                    x_fake_list.append(self.G(x_real, c_trg))
+
+                # Save the translated images.
+                x_concat = torch.cat(x_fake_list, dim=3)
+                result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
+                save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
+                print('Saved real and fake images into {}...'.format(result_path))
+
+    
     def test_attack(self):
         """Vanilla or blur attacks."""
 
@@ -1163,38 +1194,6 @@ class Solver(object):
         # Print metrics
         print('{} images. L1 error: {}. L2 error: {}. prop_dist: {}. L0 error: {}. L_-inf error: {}.'.format(n_samples, 
         l1_error / n_samples, l2_error / n_samples, float(n_dist) / n_samples, l0_error / n_samples, min_dist / n_samples))
-
-    def test_multi(self):
-        """Translate images using StarGAN trained on multiple datasets."""
-        # Load the trained generator.
-        self.restore_model(self.test_iters)
-        
-        with torch.no_grad():
-            for i, (x_real, c_org) in enumerate(self.celeba_loader):
-
-                # Prepare input images and target domain labels.
-                x_real = x_real.to(self.device)
-                c_celeba_list = self.create_labels(c_org, self.c_dim, 'CelebA', self.selected_attrs)
-                c_rafd_list = self.create_labels(c_org, self.c2_dim, 'RaFD')
-                zero_celeba = torch.zeros(x_real.size(0), self.c_dim).to(self.device)            # Zero vector for CelebA.
-                zero_rafd = torch.zeros(x_real.size(0), self.c2_dim).to(self.device)             # Zero vector for RaFD.
-                mask_celeba = self.label2onehot(torch.zeros(x_real.size(0)), 2).to(self.device)  # Mask vector: [1, 0].
-                mask_rafd = self.label2onehot(torch.ones(x_real.size(0)), 2).to(self.device)     # Mask vector: [0, 1].
-
-                # Translate images.
-                x_fake_list = [x_real]
-                for c_celeba in c_celeba_list:
-                    c_trg = torch.cat([c_celeba, zero_rafd, mask_celeba], dim=1)
-                    x_fake_list.append(self.G(x_real, c_trg))
-                for c_rafd in c_rafd_list:
-                    c_trg = torch.cat([zero_celeba, c_rafd, mask_rafd], dim=1)
-                    x_fake_list.append(self.G(x_real, c_trg))
-
-                # Save the translated images.
-                x_concat = torch.cat(x_fake_list, dim=3)
-                result_path = os.path.join(self.result_dir, '{}-images.jpg'.format(i+1))
-                save_image(self.denorm(x_concat.data.cpu()), result_path, nrow=1, padding=0)
-                print('Saved real and fake images into {}...'.format(result_path))
 
     def blur_tensor(self, tensor):
         # preproc = smoothing.AverageSmoothing2D(channels=3, kernel_size=9).to(self.device)

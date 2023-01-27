@@ -1,12 +1,12 @@
+import os
+import random
+
+import torch
+from PIL import Image
 from torch.utils import data
 from torchvision import transforms as T
 from torchvision.datasets import ImageFolder
-from PIL import Image
-import torch
-import os
-import random
-import noise
-import cv2
+
 
 class CelebA(data.Dataset):
     """Dataset class for the CelebA dataset."""
