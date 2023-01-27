@@ -5,10 +5,11 @@ import torch.nn.functional as F
 
 class UNet2D(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False):
-        super(UNet, self).__init__()
+        super(UNet2D, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
+        self.weights = nn.Parameter(torch.ones((3, ), dtype=torch.float32))
 
         self.inc = (DoubleConv(n_channels, 64))
         self.down1 = (Down(64, 128))
@@ -122,3 +123,14 @@ class OutConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
+
+if __name__ == "__main__":
+    from torchsummary import summary
+    
+    device = 5
+    model = UNet2D(3, 3)
+    # model = model.cuda()
+    # image_size = 256
+    # input_s = (3, image_size, image_size)
+    # summary(model, input_s)
+    print(list(model.children())[-1])
