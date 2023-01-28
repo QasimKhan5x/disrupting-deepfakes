@@ -135,8 +135,9 @@ class Disruptor(nn.Module):
             torch.cuda.empty_cache()
             self.criterion.set_weights(self.P.weights)
             
-            for x_real, label_org in tqdm(data_loader, total=len(data_loader)):
-                self.optim.zero_grad()
+            pbar = tqdm(data_loader, total=len(data_loader))
+            for i, (x_real, label_org) in enumerate(pbar):
+                
 
                 # =================================================================================== #
                 #                             1. Preprocess input data                                #
@@ -188,12 +189,14 @@ class Disruptor(nn.Module):
                     l0 = task_loss
                 total_objective_loss += objective_loss.item()
                 
+                self.optim.zero_grad()
                 objective_loss.backward(retain_graph=True)
                 self.criterion.zero_grad()
                 gradnorm_loss = self.criterion.gradNorm(model=self.P, task_loss=task_loss, initial_task_loss=l0)
                 total_gradnorm_loss += gradnorm_loss.item()
-                # break
-            self.optim.step()
+                self.optim.step()
+                # pbar.write(f"Objective Loss at Batch {i}: {objective_loss.item()}")
+                # pbar.write(f"GradNorm Loss at Batch {i}: {gradnorm_loss.item()}")
             self.criterion.renormalize()
             # Logging.
             loss = {'weighted_loss': total_objective_loss,
@@ -217,6 +220,9 @@ class Disruptor(nn.Module):
                     for tag, value in loss.items():
                         self.logger.add_scalar(tag, value, epoch+1)
                         
+                print(f"Objective Loss on epoch {epoch}: {total_objective_loss}")
+                print(f"GradNorm Loss on epoch {epoch}: {total_gradnorm_loss}")
+                        
             # Debug images
             if (epoch + 1) % self.sample_step == 0:
                 with torch.no_grad():
@@ -238,8 +244,6 @@ class Disruptor(nn.Module):
             if total_objective_loss < best_loss:
                 best_loss = total_objective_loss
                 save = f"{self.model_save_dir}/best"
-                if not os.path.isdir(save):
-                    os.mkdir(save)
                 torch.save(self.P.state_dict(), f"{save}.ckpt")
             self.save_model(epoch, self.P, self.optim, l0)
     

@@ -1088,7 +1088,8 @@ class Solver(object):
                     # Attack
                     if layer_num == None:
                         x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack, c_trg)
-                    else:
+                    else:Type Checking: basic
+
                         x_adv, perturb = pgd_attack.perturb(x_real, gen_noattack_feats[layer_num], c_trg)
                         
                     x_adv = x_real + perturb

@@ -33,12 +33,6 @@ class DisruptionLoss(nn.Module):
         l3 = detection_loss_fake(x_perturbed_fake_detected)
         l4 = detection_loss_real(x_perturbed_detected)
         
-        # print("l1=",l1)
-        # print("l2=",l2)
-        # print("l3=",l3)
-        # print("l4=",l4)
-        # print("weights=", self.weights)
-        
         task_loss = torch.stack([l2, l3, l4])
         objective_loss =  -l1 + self.weights @ task_loss
         return objective_loss, task_loss
@@ -78,6 +72,7 @@ class DisruptionLoss(nn.Module):
 
         # compute the inverse training rate r_i(t)
         # \curl{L}_i
+        initial_task_loss[initial_task_loss == 0] = 1e-5
         if torch.cuda.is_available():
             loss_ratio = task_loss.detach().cpu().numpy() / initial_task_loss
         else:
