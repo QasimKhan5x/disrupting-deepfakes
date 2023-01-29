@@ -134,11 +134,11 @@ class Disruptor(nn.Module):
             total_objective_loss = 0.0
             total_gradnorm_loss = 0.0
             torch.cuda.empty_cache()
-            self.criterion.set_weights(self.P.weights)
+            
             
             pbar = tqdm(data_loader, total=len(data_loader))
             for i, (x_real, label_org) in enumerate(pbar):
-                
+                self.criterion.set_weights(self.P.weights)
 
                 # =================================================================================== #
                 #                             1. Preprocess input data                                #
