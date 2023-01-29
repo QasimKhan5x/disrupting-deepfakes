@@ -17,7 +17,6 @@ def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.enabled = True
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
     os.environ["PYTHONHASHSEED"] = str(seed)
@@ -45,7 +44,6 @@ def main(config):
 
 
     # Solver for training and testing DeepFake Disruptor
-    
     solver = Disruptor(config, celeba_loader).cuda()
     solver.train()
     
@@ -59,7 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('--c2_dim', type=int, default=8, help='dimension of domain labels (2nd dataset)')
     parser.add_argument('--celeba_crop_size', type=int, default=178, help='crop size for the CelebA dataset')
     parser.add_argument('--rafd_crop_size', type=int, default=256, help='crop size for the RaFD dataset')
-    parser.add_argument('--image_size', type=int, default=256, help='image resolution')
+    parser.add_argument('--image_size', type=int, default=128, help='image resolution')
     parser.add_argument('--g_conv_dim', type=int, default=64, help='number of conv filters in the first layer of G')
     parser.add_argument('--d_conv_dim', type=int, default=64, help='number of conv filters in the first layer of D')
     parser.add_argument('--g_repeat_num', type=int, default=6, help='number of residual blocks in G')
@@ -71,7 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('--order', type=int, default=2, help='distance metric')
     
     # Training configuration.
-    parser.add_argument('--seed', type=int, default=42, help='seed for experiments')
+    parser.add_argument('--seed', type=int, default=0, help='seed for experiments')
     parser.add_argument('--dataset', type=str, default='CelebA', choices=['CelebA', 'RaFD', 'Both'])
     parser.add_argument('--batch_size', type=int, default=32, help='mini-batch size')
     parser.add_argument('--epochs', type=int, default=30, help='number of total epochs for training P')
@@ -89,7 +87,8 @@ if __name__ == '__main__':
     parser.add_argument('--disable_tensorboard', action='store_true', default=False)
 
     # Directories.
-    parser.add_argument('--gen_ckpt', type=str, default='stargan/stargan_celeba_256/models/200000-G.ckpt')
+    parser.add_argument('--gen_ckpt', type=str,
+                        default='stargan/stargan_celeba_128/models/200000-G.ckpt')
     parser.add_argument('--detector_path', type=str,
                         default='detection/detector_c23.pth')
     parser.add_argument('--celeba_image_dir', type=str, default='stargan/data/celeba/images')
@@ -102,7 +101,7 @@ if __name__ == '__main__':
 
     # Step size.
     parser.add_argument('--log_step', type=int, default=1)
-    parser.add_argument('--sample_step', type=int, default=10)
+    parser.add_argument('--sample_step', type=int, default=5)
 
     config = parser.parse_args()
     print(config)

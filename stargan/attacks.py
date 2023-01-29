@@ -1,12 +1,13 @@
 import copy
-import numpy as np
 from collections import Iterable
-from scipy.stats import truncnorm
 
+import numpy as np
 import torch
 import torch.nn as nn
+from scipy.stats import truncnorm
 
-import defenses.smoothing as smoothing
+import stargan.defenses.smoothing as smoothing
+
 
 class LinfPGDAttack(object):
     def __init__(self, model=None, device=None, epsilon=0.05, k=10, a=0.01, feat = None):

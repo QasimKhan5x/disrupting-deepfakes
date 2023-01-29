@@ -4,8 +4,8 @@ import time
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from sklearn.metrics import classification_report
+from torch.nn.functional import softmax
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
 from tqdm import tqdm
@@ -31,7 +31,6 @@ class Disruptor(nn.Module):
         self.D, *_ = model_selection(modelname='xception', num_out_classes=2)
         self.D.load_state_dict(torch.load(
             config.detector_path, map_location="cuda"))
-        # self.D.load_state_dict(ckpt)
         #  initialize perturbation generator
         self.P = UNet2D(n_channels=3, n_classes=3)            
         
@@ -78,11 +77,13 @@ class Disruptor(nn.Module):
                 c_trg[:, i] = (c_trg[:, i] == 0)
             c_trg_list.append(c_trg.to(self.device))
         return c_trg_list
-    
+
+        
     def detect(self, x):
         logits = self.D(x)
-        probabilities = F.softmax(logits, dim=1)
-        return torch.argmin(probabilities, 1, keepdim = False).float() ##  argmin because pre trained model predicts 1 as fake and 0 as real
+        probabilities = softmax(logits, dim=1)
+        # argmin because detector predicts 1 as fake and 0 as real
+        return probabilities.argmin(1, keepdim = False).float() 
     
     def save_model(self, epoch, model, optimizer, l0):
         print("Saving model on epoch", epoch, "in", self.model_save_dir)
@@ -171,16 +172,15 @@ class Disruptor(nn.Module):
                 6. x_perturbed_detected = D(x + P(x))
                 """
                 # fake image
-                x_fake, _ = self.G(x_real, c_trg)
+                x_fake = self.G(x_real, c_trg)[0]
                 # Peturbed image
                 perturbation = self.P(x_real)
                 x_perturbed = x_real + perturbation
                 # fake img gen from perturbed image
-                x_perturbed_fake, _ = self.G(x_perturbed, c_trg)
+                x_perturbed_fake = self.G(x_perturbed, c_trg)[0]
                 # detected fake and real images
                 x_perturbed_fake_detected = self.detect(x_perturbed_fake)
                 x_perturbed_detected = self.detect(x_perturbed)
-                
                 
                 objective_loss, task_loss = self.criterion(x_perturbed_fake, x_fake, perturbation,
                                                            x_perturbed_fake_detected, 
@@ -201,7 +201,6 @@ class Disruptor(nn.Module):
             # Logging.
             loss = {'weighted_loss': total_objective_loss,
                     'gradnorm_loss': total_gradnorm_loss}
-            
 
             # =================================================================================== #
             #                                 4. Miscellaneous                                    #
@@ -247,6 +246,6 @@ class Disruptor(nn.Module):
                 torch.save(self.P.state_dict(), f"{save}.ckpt")
             self.save_model(epoch, self.P, self.optim, l0)
     
-    def test_attack(self):
+    def evaluation(self):
         pass       
             
