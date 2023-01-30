@@ -12,7 +12,7 @@ from torchvision.datasets import ImageFolder
 class CelebA(data.Dataset):
     """Dataset class for the CelebA dataset."""
 
-    def __init__(self, image_dir, attr_path, selected_attrs, transform, mode, bb_dir = None):
+    def __init__(self, image_dir, attr_path, selected_attrs, transform, mode):
         """Initialize and preprocess the CelebA dataset."""
         self.image_dir = image_dir
         self.attr_path = attr_path
@@ -23,7 +23,6 @@ class CelebA(data.Dataset):
         self.test_dataset = []
         self.attr2idx = {}
         self.idx2attr = {}
-        self.bb_dir = bb_dir 
         self.preprocess()
 
         if mode == 'train':
@@ -53,11 +52,7 @@ class CelebA(data.Dataset):
                 label.append(values[idx] == '1')
 
             if (i+1) < 2000:
-                if self.bb_dir:
-                    bb_name = filename[:-3] + 'npy'
-                    self.test_dataset.append([filename, label, bb_name])
-                else:
-                    self.test_dataset.append([filename, label])
+                self.test_dataset.append([filename, label])
             else:
                 self.train_dataset.append([filename, label])
 
@@ -66,17 +61,9 @@ class CelebA(data.Dataset):
     def __getitem__(self, index):
         """Return one image and its corresponding attribute label."""
         dataset = self.train_dataset if self.mode == 'train' else self.test_dataset
+        filename, label = dataset[index]
         
-        if self.bb_dir:
-            filename, label, bb_name = dataset[index]
-        else:
-            filename, label = dataset[index]
-        
-        image = Image.open(os.path.join(self.image_dir, filename))
-        
-        if self.bb_dir:
-            face_bb = np.load(os.path.join(self.bb_dir, bb_name)) 
-            return self.transform(image), torch.FloatTensor(label), face_bb       
+        image = Image.open(os.path.join(self.image_dir, filename))   
         
         return self.transform(image), torch.FloatTensor(label)
 
@@ -87,7 +74,7 @@ class CelebA(data.Dataset):
 
 
 def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=128, 
-               batch_size=16, dataset='CelebA', mode='train', num_workers=1, bb_dir=None):
+               batch_size=16, dataset='CelebA', mode='train', num_workers=1):
     """Build and return a data loader."""
     transform = []
     if mode == 'train':
@@ -98,13 +85,7 @@ def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=1
     transform.append(T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
     transform = T.Compose(transform)
 
-    if dataset == 'CelebA':
-        if bb_dir:
-            dataset = CelebA(image_dir, attr_path, selected_attrs, transform, mode, bb_dir)
-        else:
-            dataset = CelebA(image_dir, attr_path, selected_attrs, transform, mode)
-    elif dataset == 'RaFD':
-        dataset = ImageFolder(image_dir, transform)
+    dataset = CelebA(image_dir, attr_path, selected_attrs, transform, mode)
 
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
