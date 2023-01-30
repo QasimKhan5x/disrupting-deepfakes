@@ -39,10 +39,10 @@ class DisruptionLoss(nn.Module):
         return {
             'objective_loss': objective_loss,
             'task_loss': task_loss,
-            'distortion_loss': distortion_loss,
-            'perturbation_loss': perturbation_loss,
-            'detection_loss_fake': detection_loss_fake,
-            'detection_loss_real': detection_loss_real
+            'distortion_loss': l1,
+            'perturbation_loss': l2,
+            'detection_loss_fake': l3,
+            'detection_loss_real': l4
         }
         
         
