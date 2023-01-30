@@ -35,7 +35,16 @@ class DisruptionLoss(nn.Module):
         
         task_loss = torch.stack([l2, l3, l4])
         objective_loss =  -l1 + self.weights @ task_loss
-        return objective_loss, task_loss
+        
+        return {
+            'objective_loss': objective_loss,
+            'task_loss': task_loss,
+            'distortion_loss': distortion_loss,
+            'perturbation_loss': perturbation_loss,
+            'detection_loss_fake': detection_loss_fake,
+            'detection_loss_real': detection_loss_real
+        }
+        
         
     def zero_grad(self):
         self.weights.grad = self.weights.grad * 0.0

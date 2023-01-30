@@ -131,14 +131,23 @@ class Disruptor(nn.Module):
         best_loss = float('inf')
         for epoch in range(start, self.epochs):
             
-            total_objective_loss = 0.0
-            total_gradnorm_loss = 0.0
+            total_losses = {
+                'objective_loss': 0,
+                'task_loss': [],
+                'distortion_loss': 0,
+                'perturbation_loss': 0,
+                'detection_loss_fake': 0,
+                'detection_loss_real': 0,
+                'gradnorm_loss': 0
+            }
             torch.cuda.empty_cache()
+            
+            self.criterion.set_weights(self.P.weights)
             
             
             pbar = tqdm(data_loader, total=len(data_loader))
             for i, (x_real, label_org) in enumerate(pbar):
-                self.criterion.set_weights(self.P.weights)
+                
 
                 # =================================================================================== #
                 #                             1. Preprocess input data                                #
@@ -182,25 +191,23 @@ class Disruptor(nn.Module):
                 x_perturbed_fake_detected = self.detect(x_perturbed_fake)
                 x_perturbed_detected = self.detect(x_perturbed)
                 
-                objective_loss, task_loss = self.criterion(x_perturbed_fake, x_fake, perturbation,
-                                                           x_perturbed_fake_detected, 
-                                                           x_perturbed_detected)
+                losses = self.criterion(x_perturbed_fake, x_fake, 
+                                        perturbation, x_perturbed_fake_detected, 
+                                        x_perturbed_detected)
+                
                 if epoch == 0:
-                    l0 = task_loss
-                total_objective_loss += objective_loss.item()
+                    l0 = losses['task_loss']
                 
                 self.optim.zero_grad()
-                objective_loss.backward(retain_graph=True)
+                losses['objective_loss'].backward(retain_graph=True)
                 self.criterion.zero_grad()
-                gradnorm_loss = self.criterion.gradNorm(model=self.P, task_loss=task_loss, initial_task_loss=l0)
-                total_gradnorm_loss += gradnorm_loss.item()
-                self.optim.step()
-                # pbar.write(f"Objective Loss at Batch {i}: {objective_loss.item()}")
-                # pbar.write(f"GradNorm Loss at Batch {i}: {gradnorm_loss.item()}")
+                losses['gradnorm_loss'] = self.criterion.gradNorm(
+                    model=self.P, task_loss=losses['task_loss'], initial_task_loss=l0)
+                # Logging
+                for loss in losses:
+                    total_losses[loss] += losses[loss].item()
+            self.optim.step()
             self.criterion.renormalize()
-            # Logging.
-            loss = {'weighted_loss': total_objective_loss,
-                    'gradnorm_loss': total_gradnorm_loss}
 
             # =================================================================================== #
             #                                 4. Miscellaneous                                    #
@@ -212,15 +219,14 @@ class Disruptor(nn.Module):
                 et = str(datetime.timedelta(seconds=et))[:-7]
                 log = "Elapsed [{}], Epoch [{}/{}]".format(
                     et, epoch+1, self.epochs)
-                for tag, value in loss.items():
+                for tag, value in total_losses.items():
                     log += ", {}: {:.4f}".format(tag, value)
-
+                print("==========================================")
+                print(log)
+                print("==========================================")
                 if self.logger is not None:
-                    for tag, value in loss.items():
-                        self.logger.add_scalar(tag, value, epoch+1)
-                        
-                print(f"Objective Loss on epoch {epoch}: {total_objective_loss}")
-                print(f"GradNorm Loss on epoch {epoch}: {total_gradnorm_loss}")
+                    for tag, value in total_losses.items():
+                        self.logger.add_scalar(tag, value, epoch+1)    
                         
             # Debug images
             if (epoch + 1) % self.sample_step == 0:
@@ -240,12 +246,9 @@ class Disruptor(nn.Module):
                             f'{self.sample_dir}/{epoch+1}/attacked.jpg')
 
             # Save model checkpoints.
-            if total_objective_loss < best_loss:
-                best_loss = total_objective_loss
+            if total_losses['objective_loss'] < best_loss:
+                best_loss = total_losses['objective_loss']
                 save = f"{self.model_save_dir}/best"
                 torch.save(self.P.state_dict(), f"{save}.ckpt")
-            self.save_model(epoch, self.P, self.optim, l0)
-    
-    def evaluation(self):
-        pass       
+            self.save_model(epoch, self.P, self.optim, l0)   
             

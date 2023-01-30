@@ -1,6 +1,7 @@
 import os
 import random
 
+import numpy as np
 import torch
 from PIL import Image
 from torch.utils import data
@@ -11,7 +12,7 @@ from torchvision.datasets import ImageFolder
 class CelebA(data.Dataset):
     """Dataset class for the CelebA dataset."""
 
-    def __init__(self, image_dir, attr_path, selected_attrs, transform, mode):
+    def __init__(self, image_dir, attr_path, selected_attrs, transform, mode, bb_dir = None):
         """Initialize and preprocess the CelebA dataset."""
         self.image_dir = image_dir
         self.attr_path = attr_path
@@ -22,6 +23,7 @@ class CelebA(data.Dataset):
         self.test_dataset = []
         self.attr2idx = {}
         self.idx2attr = {}
+        self.bb_dir = bb_dir 
         self.preprocess()
 
         if mode == 'train':
@@ -44,13 +46,18 @@ class CelebA(data.Dataset):
             filename = split[0]
             values = split[1:]
 
+
             label = []
             for attr_name in self.selected_attrs:
                 idx = self.attr2idx[attr_name]
                 label.append(values[idx] == '1')
 
             if (i+1) < 2000:
-                self.test_dataset.append([filename, label])
+                if self.bb_dir:
+                    bb_name = filename[:-3] + 'npy'
+                    self.test_dataset.append([filename, label, bb_name])
+                else:
+                    self.test_dataset.append([filename, label])
             else:
                 self.train_dataset.append([filename, label])
 
@@ -59,8 +66,18 @@ class CelebA(data.Dataset):
     def __getitem__(self, index):
         """Return one image and its corresponding attribute label."""
         dataset = self.train_dataset if self.mode == 'train' else self.test_dataset
-        filename, label = dataset[index]
+        
+        if self.bb_dir:
+            filename, label, bb_name = dataset[index]
+        else:
+            filename, label = dataset[index]
+        
         image = Image.open(os.path.join(self.image_dir, filename))
+        
+        if self.bb_dir:
+            face_bb = np.load(os.path.join(self.bb_dir, bb_name)) 
+            return self.transform(image), torch.FloatTensor(label), face_bb       
+        
         return self.transform(image), torch.FloatTensor(label)
 
     def __len__(self):
@@ -70,7 +87,7 @@ class CelebA(data.Dataset):
 
 
 def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=128, 
-               batch_size=16, dataset='CelebA', mode='train', num_workers=1):
+               batch_size=16, dataset='CelebA', mode='train', num_workers=1, bb_dir=None):
     """Build and return a data loader."""
     transform = []
     if mode == 'train':
@@ -82,7 +99,10 @@ def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=1
     transform = T.Compose(transform)
 
     if dataset == 'CelebA':
-        dataset = CelebA(image_dir, attr_path, selected_attrs, transform, mode)
+        if bb_dir:
+            dataset = CelebA(image_dir, attr_path, selected_attrs, transform, mode, bb_dir)
+        else:
+            dataset = CelebA(image_dir, attr_path, selected_attrs, transform, mode)
     elif dataset == 'RaFD':
         dataset = ImageFolder(image_dir, transform)
 
