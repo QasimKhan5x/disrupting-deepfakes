@@ -1,14 +1,15 @@
 import os
+import random
 
-from config import get_config
-from solver import Solver
-from data_loader import get_loader
-from torch.backends import cudnn
+import numpy as np
+import torch
+
+from ganimation.config import get_config
+from ganimation.data_loader import get_loader
+from ganimation.psolver import Disruptor
 
 
 def main(config):
-    cudnn.benchmark = True  # Improves runtime if the input size is constant
-
     config.outputs_dir = os.path.join('experiments', config.outputs_dir)
 
     config.log_dir = os.path.join(config.outputs_dir, config.log_dir)
@@ -17,19 +18,32 @@ def main(config):
     config.sample_dir = os.path.join(config.outputs_dir, config.sample_dir)
     config.result_dir = os.path.join(config.outputs_dir, config.result_dir)
 
-    data_loader = get_loader(config.image_dir, config.attr_path, config.c_dim,
-                             config.image_size, config.batch_size, config.mode,
-                             config.num_workers)
+    data_loader = get_loader(config.image_dir, config.attr_path, config.batch_size,
+                             config.mode, config.num_workers)
 
     config_dict = vars(config)
-    solver = Solver(data_loader, config_dict)
+    solver = Disruptor(data_loader, config_dict)
+    solver.train()
+    # solver = Solver(data_loader, config_dict)
+    # if config.mode == 'train':
+    #     initialize_train_directories(config)
+    #     solver.train()
+    # elif config.mode == 'animation':
+    #     initialize_animation_directories(config)
+    #     solver.animation()
 
-    if config.mode == 'train':
-        initialize_train_directories(config)
-        solver.train()
-    elif config.mode == 'animation':
-        initialize_animation_directories(config)
-        solver.animation()
+
+def set_seed(seed):
+    """Set seed"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 def initialize_train_directories(config):
@@ -56,5 +70,5 @@ if __name__ == '__main__':
 
     config = get_config()
     print(config)
-
+    set_seed(config.seed)
     main(config)

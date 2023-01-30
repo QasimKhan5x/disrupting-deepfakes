@@ -28,40 +28,45 @@ def get_config():
                         help='weight for attention saturation loss')
     parser.add_argument('--lambda_smooth', type=float, default=1e-4,
                         help='weight for the attention smoothing loss')
-
-    # Training configuration.
+    parser.add_argument('--eps', type=float, default=0.05, help='epsilon for perturbation')
+    parser.add_argument('--order', type=int, default=2, help='distance metric')
+    
+    # Training configuration
+    parser.add_argument('--seed', type=int, default=0,
+                        help='seed for experiments')
+    parser.add_argument('--dataset', type=str, default='CelebA',
+                        choices=['CelebA', 'RaFD', 'Both'])
     parser.add_argument('--batch_size', type=int,
-                        default=1, help='mini-batch size')
-    parser.add_argument('--num_epochs', type=int, default=30,
-                        help='number of total epochs for training D')
-    parser.add_argument('--num_epochs_decay', type=int, default=20,
-                        help='number of epochs for start decaying lr')
-    parser.add_argument('--g_lr', type=float, default=0.0001,
+                        default=32, help='mini-batch size')
+    parser.add_argument('--epochs', type=int, default=30,
+                        help='number of total epochs for training P')
+    parser.add_argument('--lr', type=float, default=1e-3,
                         help='learning rate for G')
-    parser.add_argument('--d_lr', type=float, default=0.0001,
-                        help='learning rate for D')
-    parser.add_argument('--n_critic', type=int, default=5,
-                        help='number of D updates per each G update')
+    parser.add_argument('--beta1', type=float, default=0.99,
+                        help='beta1 for Adam optimizer')
     parser.add_argument('--beta2', type=float, default=0.999,
                         help='beta2 for Adam optimizer')
-    parser.add_argument('--beta1', type=float, default=0.5,
-                        help='beta1 for Adam optimizer')
-    parser.add_argument('--resume_iters', type=int,
-                        default=None, help='resume training from this step')
-    parser.add_argument('--first_epoch', type=int,
-                        default=0, help='First epoch')
-    parser.add_argument('--gpu_id', type=int, default=0, help='GPU id')
-    parser.add_argument('--use_virtual', type=str2bool, default=False,
-                        help='Boolean to decide if we should use the virtual cycle concistency loss')
+    parser.add_argument('--resume', default=False,
+                        action='store_true', help='resume training from last epoch')
+    parser.add_argument('--selected_attrs', '--list', nargs='+', help='selected attributes for the CelebA dataset',
+                        default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young'])
+    parser.add_argument('--alpha', type=float, default=0.12,
+                        help="alpha for gradnorm")
+    
     # Miscellaneous.
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=48)
     parser.add_argument('--mode', type=str, default='train',
                         choices=['train', 'animation'])
-    parser.add_argument('--use_tensorboard', type=str2bool, default=False)
+    parser.add_argument('--disable_tensorboard',
+                        action='store_true', default=False)
     parser.add_argument('--num_sample_targets', type=int, default=4,
                         help="number of targets to use in the samples visualization")
 
     # Directories.
+    parser.add_argument('--gen_ckpt', type=str,
+                        default='stargan/stargan_celeba_128/models/200000-G.ckpt')
+    parser.add_argument('--detector_path', type=str,
+                        default='detection/detector_c23.pth')
     parser.add_argument('--image_dir', type=str,
                         default='data/celeba/images_aligned')
     parser.add_argument('--attr_path', type=str,
@@ -72,8 +77,6 @@ def get_config():
     parser.add_argument('--sample_dir', type=str, default='samples')
     parser.add_argument('--result_dir', type=str, default='results')
 
-    # parser.add_argument('--animation_images_dir', type=str,
-    #                     default='animations/eric_andre/images_to_animate')
     parser.add_argument('--animation_images_dir', type=str,
                         default='data/celeba/images_aligned/new_small')
     parser.add_argument('--animation_attribute_images_dir', type=str,
@@ -82,17 +85,14 @@ def get_config():
                         default='animations/eric_andre/attributes.txt')
     parser.add_argument('--animation_models_dir', type=str,
                         default='models')
-    # parser.add_argument('--animation_results_dir', type=str,
-    #                     default='animations/eric_andre/results')
     parser.add_argument('--animation_results_dir', type=str,
                         default='out')
     parser.add_argument('--animation_mode', type=str, default='animate_image',
                         choices=['animate_image', 'animate_random_batch'])
 
     # Step size.
-    parser.add_argument('--log_step', type=int, default=10)
-    parser.add_argument('--sample_step', type=int, default=200)
-    parser.add_argument('--model_save_step', type=int, default=1000)
+    parser.add_argument('--log_step', type=int, default=1)
+    parser.add_argument('--sample_step', type=int, default=5)
 
     config = parser.parse_args()
     return config
