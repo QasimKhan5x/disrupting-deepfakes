@@ -10,7 +10,7 @@ from ganimation.psolver import Disruptor
 
 
 def main(config):
-    config.outputs_dir = os.path.join('experiments', config.outputs_dir)
+    config.outputs_dir = os.path.join('ganimation', 'experiments', config.outputs_dir)
 
     config.log_dir = os.path.join(config.outputs_dir, config.log_dir)
     config.model_save_dir = os.path.join(
@@ -18,11 +18,11 @@ def main(config):
     config.sample_dir = os.path.join(config.outputs_dir, config.sample_dir)
     config.result_dir = os.path.join(config.outputs_dir, config.result_dir)
 
-    data_loader = get_loader(config.image_dir, config.attr_path, config.batch_size,
-                             config.mode, config.num_workers)
-
-    config_dict = vars(config)
-    solver = Disruptor(data_loader, config_dict)
+    data_loader = get_loader(config.image_dir, config.attr_path, config.c_dim,
+                             config.batch_size, config.mode, config.num_workers)
+    initialize_train_directories(config)
+    # config_dict = vars(config)
+    solver = Disruptor(config, data_loader).to("cuda")
     solver.train()
     # solver = Solver(data_loader, config_dict)
     # if config.mode == 'train':
@@ -47,8 +47,8 @@ def set_seed(seed):
 
 
 def initialize_train_directories(config):
-    if not os.path.exists('experiments'):
-        os.makedirs('experiments')
+    if not os.path.isdir('ganimation/experiments'):
+        os.makedirs('ganimation/experiments')
     if not os.path.exists(config.outputs_dir):
         os.makedirs(config.outputs_dir)
     if not os.path.exists(config.log_dir):

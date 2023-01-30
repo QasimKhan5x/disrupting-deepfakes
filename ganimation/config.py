@@ -7,7 +7,6 @@ def get_config():
     # Model configuration.
     parser.add_argument('--c_dim', type=int, default=17,
                         help='dimension of domain labels')
-
     parser.add_argument('--image_size', type=int,
                         default=128, help='image resolution')
     parser.add_argument('--g_conv_dim', type=int, default=64,
@@ -48,8 +47,6 @@ def get_config():
                         help='beta2 for Adam optimizer')
     parser.add_argument('--resume', default=False,
                         action='store_true', help='resume training from last epoch')
-    parser.add_argument('--selected_attrs', '--list', nargs='+', help='selected attributes for the CelebA dataset',
-                        default=['Black_Hair', 'Blond_Hair', 'Brown_Hair', 'Male', 'Young'])
     parser.add_argument('--alpha', type=float, default=0.12,
                         help="alpha for gradnorm")
     
@@ -64,13 +61,13 @@ def get_config():
 
     # Directories.
     parser.add_argument('--gen_ckpt', type=str,
-                        default='stargan/stargan_celeba_128/models/200000-G.ckpt')
+                        default='ganimation/7001-37-G.ckpt')
     parser.add_argument('--detector_path', type=str,
                         default='detection/detector_c23.pth')
     parser.add_argument('--image_dir', type=str,
-                        default='data/celeba/images_aligned')
+                        default='ganimation/data/celeba/images_aligned')
     parser.add_argument('--attr_path', type=str,
-                        default='data/celeba/list_attr_celeba.txt')
+                        default='ganimation/data/celeba/list_attr_celeba.txt')
     parser.add_argument('--outputs_dir', type=str, default='experiment1')
     parser.add_argument('--log_dir', type=str, default='logs')
     parser.add_argument('--model_save_dir', type=str, default='models')

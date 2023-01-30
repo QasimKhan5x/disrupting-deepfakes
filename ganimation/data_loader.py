@@ -35,7 +35,7 @@ class CelebA(data.Dataset):
 
     def preprocess(self):
         lines = [line.rstrip() for line in open(self.attr_path, 'r')]
-        lines = lines[2:]
+        lines = lines[1:]
         random.shuffle(lines)
 
         # Extract the info from each line
@@ -85,3 +85,20 @@ def get_loader(image_dir, attr_path, c_dim=17,
                                   shuffle=(mode == 'train'),
                                   num_workers=num_workers)
     return data_loader
+
+
+if __name__ == "__main__":
+    from types import SimpleNamespace
+    
+    config = SimpleNamespace(**{
+        "image_dir": "ganimation/data/celeba/images_aligned",
+        "attr_path": "ganimation/data/celeba/list_attr_celeba.txt",
+        "batch_size": 32
+    })
+    dl = get_loader(config.image_dir, config.attr_path, batch_size=32)
+    
+    for x, c in dl:
+        print(x.shape)
+        print(c.shape)
+        break
+    print("Done!")

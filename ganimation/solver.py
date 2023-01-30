@@ -255,7 +255,6 @@ class Solver(Utils):
                 "attention_mask": attention_mask,
                 "x_rec": x_rec,
                 "reconstructed_attention_mask": reconstructed_attention_mask,
-                "reconstructed_attention_mask": reconstructed_attention_mask,
                 "reconstructed_color_regression": reconstructed_color_regression,
             }
 
