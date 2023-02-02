@@ -1,8 +1,8 @@
 import numpy as np
 import torch
+import torch.linalg as LA
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import linalg as LA
 
 
 class DisruptionLoss(nn.Module):
@@ -120,23 +120,22 @@ def distortion_loss(x_perturbed_fake, x_fake, order):
     x_perturbed_fake = G(x + P(x))
     x_fake = G(x)
     '''
-    x_perturbed_fake = x_perturbed_fake.view(-1)
-    # print(x_fake.shape)
-    x_fake = x_fake.view(-1)
-    difference = x_perturbed_fake - x_fake
-    # print(x_fake.shape)
-    # print("difference:", difference.mean())
-    norm = LA.norm(difference, ord=order)
-    return norm.mean()
+    B = x_fake.size(0)
+    x_perturbed_fake = x_perturbed_fake.view(B, -1)
+    x_fake = x_fake.view(B, -1)
+    diff = x_perturbed_fake - x_fake
+    return LA.norm(diff, axis=1, ord=order).mean()
 
 
 def perturbation_loss(p_x, eps):
     '''
     p_x = P(x)
     '''
-    p_x = p_x.view(-1)
-    return F.relu(LA.norm(p_x) - eps)
-
+    p_x = p_x.view(p_x.size(0), -1)
+    norm = LA.norm(p_x, axis=1)
+    diff = norm - eps
+    return diff.mean()
+    
 
 def detection_loss_fake(z):
     '''
@@ -144,14 +143,14 @@ def detection_loss_fake(z):
     z = D(x_fake)
     ^ minimize predicted logits
     '''
-    return z.view(-1).mean()
+    return z.mean()
 
 
 def detection_loss_real(z):
     '''
     z = D(x + P(x))
     '''
-    return (1 - z.view(-1)).mean()
+    return (1 - z).mean()
 
 
 def disruption_loss(attacked_x, gen_x, perturbed_x, 
