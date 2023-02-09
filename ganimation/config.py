@@ -1,7 +1,7 @@
 import argparse
 
 
-def get_config():
+def get_config(args=None):
     parser = argparse.ArgumentParser()
 
     # Model configuration.
@@ -39,7 +39,7 @@ def get_config():
                         default=32, help='mini-batch size')
     parser.add_argument('--epochs', type=int, default=30,
                         help='number of total epochs for training P')
-    parser.add_argument('--lr', type=float, default=1e-3,
+    parser.add_argument('--lr', type=float, default=1e-4,
                         help='learning rate for G')
     parser.add_argument('--beta1', type=float, default=0.99,
                         help='beta1 for Adam optimizer')
@@ -47,8 +47,10 @@ def get_config():
                         help='beta2 for Adam optimizer')
     parser.add_argument('--resume', default=False,
                         action='store_true', help='resume training from last epoch')
-    parser.add_argument('--alpha', type=float, default=0.12,
+    parser.add_argument('--alpha', type=float, default=0.1,
                         help="alpha for gradnorm")
+    parser.add_argument('--detector', type=str, default='xception', choices=['xception', 'resnet18', 'resnet50'])
+
     
     # Miscellaneous.
     parser.add_argument('--num_workers', type=int, default=48)
@@ -89,9 +91,12 @@ def get_config():
 
     # Step size.
     parser.add_argument('--log_step', type=int, default=1)
-    parser.add_argument('--sample_step', type=int, default=5)
+    parser.add_argument('--sample_step', type=int, default=1)
 
-    config = parser.parse_args()
+    if args is []:
+        config = parser.parse_args(args=[])
+    else:
+        config = parser.parse_args()
     return config
 
 
